@@ -22,7 +22,7 @@ func Sprintf(format string, a ...interface{}) string {
 	return fmt.Sprintf(f, args...)
 }
 
-func formatLoop(format string, a ...interface{}) (string, []interface{}) {
+func formatLoop(fmt string, a ...interface{}) (string, []interface{}) {
 
 	var args []interface{}
 
@@ -35,29 +35,24 @@ func formatLoop(format string, a ...interface{}) (string, []interface{}) {
 			continue
 		}
 
-		newformat, newval := calc(format, i, val)
+		format(&fmt, i, &val)
 
-		if newformat != format {
-			format = newformat
-		}
-		args = append(args, newval)
+		args = append(args, val)
 
 	}
 
-	return format, args
+	return fmt, args
 }
 
-func calc(format string, index int, val string) (string, string) {
+func format(fmt *string, index int, val *string) {
 
-	var newval string
-
-	list := strings.Split(format, "%")
+	list := strings.Split(*fmt, "%")
 	f := list[index+1]
 	spos := strings.Index(f, "s")
 
 	// case "%s"
 	if spos <= 0 {
-		return format, val
+		return
 	}
 
 	minus := false
@@ -67,7 +62,7 @@ func calc(format string, index int, val string) (string, string) {
 
 	// case "%-s"
 	if minus && spos == 1 {
-		return format, val
+		return
 	}
 
 	var padAndLen []string
@@ -78,53 +73,56 @@ func calc(format string, index int, val string) (string, string) {
 		padAndLen = strings.Split(f[0:spos], ".")
 	}
 
-	pad := -1
-	length := -1
+	padding := -1
+	width := -1
 
-	pad, err := strconv.Atoi(padAndLen[0])
+	padding, err := strconv.Atoi(padAndLen[0])
 	if err != nil {
 		// case "%.2s"
-		pad = -1
+		padding = -1
 	}
 
 	if len(padAndLen) > 1 {
-		length, err = strconv.Atoi(padAndLen[1])
+		width, err = strconv.Atoi(padAndLen[1])
 		if err != nil {
 			// case "%.s"
-			length = -1
+			width = -1
 		}
 	}
 
-	if length >= 0 {
+	var newval string
+
+	if width >= 0 {
 		n := 0
-		for _, c := range val {
+		for _, c := range *val {
 			if len(string(c)) == 1 {
 				n += 1
 			} else {
 				n += 2
 			}
-			if n > length {
+			if n > width {
 				break
 			}
 			newval += string(c)
 		}
 	} else {
-		newval = val
+		newval = *val
 	}
 
-	if pad <= 0 && length <= 0 {
-		return format, newval
+	*val = newval
+
+	if padding <= 0 && width <= 0 {
+		return
 	}
 
-	if pad > 0 {
-		pad = pad - zenkakuCnt(val)
-		if pad <= 0 {
-			pad = 1
+	if padding > 0 {
+		padding = padding - zenkakuCnt(*val)
+		if padding <= 0 {
+			padding = 1
 		}
+		list[index+1] = strconv.Itoa(padding) + "s" + f[spos+1:]
 		if padAndLen[0][0] == 0x30 {
-			list[index+1] = "0" + strconv.Itoa(pad) + "s" + f[spos+1:]
-		} else {
-			list[index+1] = strconv.Itoa(pad) + "s" + f[spos+1:]
+			list[index+1] = "0" + list[index+1]
 		}
 	}
 
@@ -132,7 +130,9 @@ func calc(format string, index int, val string) (string, string) {
 		list[index+1] = "-" + list[index+1]
 	}
 
-	return strings.Join(list, "%"), newval
+	*fmt = strings.Join(list, "%")
+
+	return
 }
 
 func zenkakuCnt(s string) int {
