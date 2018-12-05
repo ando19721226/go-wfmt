@@ -27,12 +27,9 @@ func doFormat(fmt string, a ...interface{}) (string, []interface{}) {
 
 	for i, v := range a {
 		val, ok := v.(string)
-		if !ok {
-			args = append(args, v)
-			continue
+		if ok {
+			format(&fmt, i, &val)
 		}
-
-		format(&fmt, i, &val)
 		args = append(args, val)
 	}
 	return fmt, args
@@ -40,7 +37,8 @@ func doFormat(fmt string, a ...interface{}) (string, []interface{}) {
 
 func format(fmt *string, index int, val *string) {
 	fmts := strings.Split(*fmt, "%")
-	f := fmts[index+1]
+	fpos := index + 1
+	f := fmts[fpos]
 	spos := strings.Index(f, "s")
 
 	// case "%s"
@@ -83,44 +81,27 @@ func format(fmt *string, index int, val *string) {
 		}
 	}
 
-	var newval string
-
 	if width >= 0 {
-		n := 0
-		for _, c := range *val {
-			if len(string(c)) == 1 {
-				n += 1
-			} else {
-				n += 2
-			}
-			if n > width {
-				break
-			}
-			newval += string(c)
-		}
-	} else {
-		newval = *val
+		*val = substrWithWidth(*val, width)
 	}
-
-	*val = newval
 
 	if padding <= 0 && width <= 0 {
 		return
 	}
 
 	if padding > 0 {
-		padding = padding - zenkakuCnt(*val)
-		if padding <= 0 {
-			padding = 1
+		padding = padding - countWideChars(*val)
+		if padding < 0 {
+			padding = 0
 		}
-		fmts[index+1] = strconv.Itoa(padding) + "s" + f[spos+1:]
+		fmts[fpos] = strconv.Itoa(padding) + f[spos:]
 		if padAndLen[0][0] == 0x30 {
-			fmts[index+1] = "0" + fmts[index+1]
+			fmts[fpos] = "0" + fmts[fpos]
 		}
 	}
 
-	if minus && fmts[index+1][0] != 0x2d {
-		fmts[index+1] = "-" + fmts[index+1]
+	if minus {
+		fmts[fpos] = "-" + fmts[fpos]
 	}
 
 	*fmt = strings.Join(fmts, "%")
@@ -128,14 +109,32 @@ func format(fmt *string, index int, val *string) {
 	return
 }
 
-func zenkakuCnt(s string) int {
-	cnt := 0
-	for _, c := range s {
-		if len(string(c)) == 1 {
-			cnt += 1
-		} else {
-			cnt += 2
-		}
+func charWidth(c rune) int {
+	if len(string(c)) == 1 {
+		return 1
 	}
-	return cnt - len([]rune(s))
+	return 2
+}
+
+func substrWithWidth(s string, width int) string {
+	var (
+		ret string
+		n   int
+	)
+	for _, c := range s {
+		n += charWidth(c)
+		if n > width {
+			break
+		}
+		ret += string(c)
+	}
+	return ret
+}
+
+func countWideChars(s string) int {
+	n := 0
+	for _, c := range s {
+		n += charWidth(c)
+	}
+	return n - len([]rune(s))
 }
