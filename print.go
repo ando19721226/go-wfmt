@@ -18,36 +18,29 @@ func Printf(format string, a ...interface{}) (n int, err error) {
 }
 
 func Sprintf(format string, a ...interface{}) string {
-	f, args := formatLoop(format, a...)
+	f, args := doFormat(format, a...)
 	return fmt.Sprintf(f, args...)
 }
 
-func formatLoop(fmt string, a ...interface{}) (string, []interface{}) {
-
+func doFormat(fmt string, a ...interface{}) (string, []interface{}) {
 	var args []interface{}
 
 	for i, v := range a {
-
 		val, ok := v.(string)
-
 		if !ok {
 			args = append(args, v)
 			continue
 		}
 
 		format(&fmt, i, &val)
-
 		args = append(args, val)
-
 	}
-
 	return fmt, args
 }
 
 func format(fmt *string, index int, val *string) {
-
-	list := strings.Split(*fmt, "%")
-	f := list[index+1]
+	fmts := strings.Split(*fmt, "%")
+	f := fmts[index+1]
 	spos := strings.Index(f, "s")
 
 	// case "%s"
@@ -120,17 +113,17 @@ func format(fmt *string, index int, val *string) {
 		if padding <= 0 {
 			padding = 1
 		}
-		list[index+1] = strconv.Itoa(padding) + "s" + f[spos+1:]
+		fmts[index+1] = strconv.Itoa(padding) + "s" + f[spos+1:]
 		if padAndLen[0][0] == 0x30 {
-			list[index+1] = "0" + list[index+1]
+			fmts[index+1] = "0" + fmts[index+1]
 		}
 	}
 
-	if minus && list[index+1][0] != 0x2d {
-		list[index+1] = "-" + list[index+1]
+	if minus && fmts[index+1][0] != 0x2d {
+		fmts[index+1] = "-" + fmts[index+1]
 	}
 
-	*fmt = strings.Join(list, "%")
+	*fmt = strings.Join(fmts, "%")
 
 	return
 }
